@@ -2,8 +2,11 @@ import * as AWS  from 'aws-sdk'
 import * as AWSXRay from 'aws-xray-sdk'
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 import { TodoItem } from '../models/TodoItem'
+import { createLogger } from '../utils/logger'
 
 const XAWS = AWSXRay.captureAWS(AWS)
+
+const logger = createLogger('todo-access')
 
 export class TodoAccess {
 
@@ -13,12 +16,12 @@ export class TodoAccess {
     private readonly todoTable = process.env.TODO_TABLE,
     private readonly bucketName = process.env.TODO_S3_BUCKET,
     private readonly urlExpiration = process.env.SIGNED_URL_EXPIRATION,
-    private readonly indexName = process.env.TODO_TABLE_INDEX)
+    private readonly indexName = process.env.TODO_TABLE_IDX)
     { //
   }
 
   async getAllTodosByUser(userId: string): Promise<TodoItem[]> {
-    console.log('Getting all todos for user')
+    logger.info('Getting all todo items by user')
 
     const result = await this.docClient.query({
       TableName: this.todoTable,
@@ -35,6 +38,7 @@ export class TodoAccess {
   }
   
   async updateTodo(todo: TodoItem): Promise <TodoItem> {
+    logger.info('Updating a todo with ID ${todo.todoId}')
     
     const updateExpression = 'set #n = :name, dueDate = :dueDate, done = :done'
 
@@ -62,6 +66,7 @@ export class TodoAccess {
   }
 
   async createTodo(todo: TodoItem): Promise<TodoItem> {
+    logger.info('Creating a todo with ID ${todo.todoId}')
     
     const newItem = {
       ...todo
@@ -77,6 +82,8 @@ export class TodoAccess {
 
 
   async deleteTodo(userId: string, todoId: string): Promise<string> {
+    logger.info('Deleting a todo with ID ${todo.todoId}')
+    
     await this.docClient.delete({
       TableName: this.todoTable,
       Key: {
@@ -93,7 +100,9 @@ export class TodoAccess {
   }
 
   async generateUploadUrl(todoId: string): Promise<string> {
-     return this.s3.getSignedUrl('putObject', {
+    logger.info('Generating upload Url')
+    
+    return this.s3.getSignedUrl('putObject', {
       Bucket: this.bucketName,
       Key: todoId,
       Expires: this.urlExpiration

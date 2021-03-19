@@ -5,27 +5,41 @@ import { APIGatewayProxyEvent, APIGatewayProxyHandler, APIGatewayProxyResult } f
 import { UpdateTodoRequest } from '../../requests/UpdateTodoRequest'
 import { updateTodoItem } from '../../businessLogic/todos'
 import { getUserId } from '../utils'
+import { createLogger } from '../../utils/logger'
+
+const logger = createLogger('update-todos')
 
 export const handler: APIGatewayProxyHandler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
-  const todoId = event.pathParameters.todoId
-  const updatedTodo: UpdateTodoRequest = JSON.parse(event.body)
+ 
+  try {
+    
+    const todoId = event.pathParameters.todoId
+    const updatedTodo: UpdateTodoRequest = JSON.parse(event.body)
+    
+    //const authorization = event.headers.Authorization
+    //const split = authorization.split(' ')
+    //const jwtToken = split[1]
   
-  //const authorization = event.headers.Authorization
-  //const split = authorization.split(' ')
-  //const jwtToken = split[1]
-
-  const userId = getUserId(event)
-
-  const updatedItem = await updateTodoItem(updatedTodo, userId, todoId)
-
-  return {
-    statusCode: 201,
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Credentials': true
-    },
-    body: JSON.stringify({
-      updatedItem
-    })
+    const userId = getUserId(event)
+  
+    const updatedItem = await updateTodoItem(updatedTodo, userId, todoId)
+  
+    return {
+      statusCode: 201,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Credentials': true
+      },
+      body: JSON.stringify({
+        updatedItem
+      })
+    }
+  } catch (e) {
+    logger.error('Error: ' + e.message)
+    
+    return {
+      statusCode: 500,
+      body: e.message
+    }
   }
 }

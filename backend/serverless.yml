@@ -3,7 +3,8 @@ service:
 
 plugins:
   - serverless-webpack
-  - serverless-iam-roles-per-function
+  #- serverless-iam-roles-per-function
+  - serverless-aws-documentation
 
 provider:
   name: aws
@@ -12,33 +13,46 @@ provider:
   stage: ${opt:stage, 'dev'}
   region: ${opt:region, 'eu-central-1'}
   
+  tracing:
+    lambda: true
+    apiGateway: true
+  
   rolePermissionsBoundary: arn:aws:iam::001521917770:policy/acs/acs-boundary-policy
   
   environment:
     TODO_TABLE: Todos-${self:provider.stage}
+    TODO_TABLE_IDX: searchByUserId
     TODO_S3_BUCKET: serverless-udagram-todo-datacamp265-${self:provider.stage}
     SIGNED_URL_EXPIRATION: 300
-    TODO_TABLE_INDEX: TodoIdIndex
     JWKS_URL: 'https://dev-isohi138.eu.auth0.com/.well-known/jwks.json'
     
   iamRoleStatements:
     - Effect: Allow
       Action:
-        - dynamodb:Scan
         - dynamodb:PutItem
-        - dynamodb:GetItem
+        - dynamodb:DeleteItem
         - dynamodb:UpdateItem
-        - dynamodb:Query??
+        - dynamodb:Query
       Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODO_TABLE}
     - Effect: Allow
       Action:
-        - dynamodb:Query??
-      Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.IMAGES_TABLE}/index/${self:provider.environment.IMAGE_ID_INDEX}
+        - dynamodb:Query
+      Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODO_TABLE}/index/${self:provider.environment.TODO_TABLE_IDX}
     - Effect: Allow
       Action:
         - s3:PutObject
         - s3:GetObject
       Resource: arn:aws:s3:::${self:provider.environment.TODO_S3_BUCKET}/*
+      
+      
+custom:
+  topicName: todosTopic-${self:provider.stage}
+  documentation:
+    api:
+      info:
+        version: v1.0.0
+        title: Todo API
+        description: Serverless application for todos sharing
       
 functions:
 
@@ -54,6 +68,11 @@ functions:
           path: todos
           cors: true
           authorizer: Auth
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:Query
+        Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODO_TABLE}/index/${self:provider.environment.TODO_TABLE_IDX}
 
   # TODO: Configure this function
   CreateTodo:
@@ -117,9 +136,9 @@ resources:
       Type: AWS::DynamoDB::Table
       Properties:
         AttributeDefinitions:
-          - AttributeName: todoId
-            AttributeType: S
           - AttributeName: userId
+            AttributeType: S
+          - AttributeName: todoId
             AttributeType: S
         KeySchema:
           - AttributeName: userId
@@ -127,7 +146,7 @@ resources:
           - AttributeName: todoId
             KeyType: RANGE
         LocalSecondaryIndexes:
-          - IndexName: ${self:provider.environment.TODOS_TABLE_SEC_INDEX}
+          - IndexName: ${self:provider.environment.TODO_TABLE_IDX}
             KeySchema:
               - AttributeName: userId
                 KeyType: HASH
@@ -142,28 +161,28 @@ resources:
       Type: AWS::S3::Bucket
       Properties:
         BucketName: ${self:provider.environment.TODO_S3_BUCKET}
-      Tags:
-        - Key: "Allowed_Public_Access"
-          Value: "True"
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: false
-        BlockPublicPolicy: false
-        IgnorePublicAcls: false
-        RestrictPublicBuckets: false
-      CorsConfiguration:
-        CorsRules:
-          -
-            AllowedOrigins:
-              - '*'
-            AllowedHeaders:
-              - '*'
-            AllowedMethods:
-              - GET
-              - PUT
-              - POST
-              - DELETE
-              - HEAD
-            MaxAge: 3000
+        Tags:
+          - Key: "Allowed_Public_Access"
+            Value: "True"
+        PublicAccessBlockConfiguration:
+          BlockPublicAcls: false
+          BlockPublicPolicy: false
+          IgnorePublicAcls: false
+          RestrictPublicBuckets: false
+        CorsConfiguration:
+          CorsRules:
+            -
+              AllowedOrigins:
+                - '*'
+              AllowedHeaders:
+                - '*'
+              AllowedMethods:
+                - GET
+                - PUT
+                - POST
+                - DELETE
+                - HEAD
+              MaxAge: 3000
           
     BucketPolicy:
       Type: AWS::S3::BucketPolicy
@@ -178,4 +197,3 @@ resources:
               Action: 's3:GetObject'
               Resource: 'arn:aws:s3:::${self:provider.environment.TODO_S3_BUCKET}/*'
         Bucket: !Ref AttachmentsBucket        
-    # TODO: Add any necessary AWS resources
