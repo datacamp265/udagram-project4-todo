@@ -3,6 +3,8 @@ import * as AWSXRay from 'aws-xray-sdk'
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 import { TodoItem } from '../models/TodoItem'
 import { createLogger } from '../utils/logger'
+import { UpdateTodoRequest } from '../requests/UpdateTodoRequest'
+import { CreateTodoRequest } from '../requests/CreateTodoRequest'
 
 const XAWS = AWSXRay.captureAWS(AWS)
 
@@ -37,39 +39,46 @@ export class TodoAccess {
     return items as TodoItem[]
   }
   
-  async updateTodo(todo: TodoItem): Promise <TodoItem> {
+  async updateTodo(updateTodo: UpdateTodoRequest, userId: string, todoId: string) {
     logger.info('Updating a todo with ID ${todo.todoId}')
     
     const updateExpression = 'set #n = :name, dueDate = :dueDate, done = :done'
 
-    await this.docClient.update({
+    const result = await this.docClient.update({
       TableName: this.todoTable,
       Key: {
-          userId: todo.userId,
-          todoId: todo.todoId
+          userId: userId,
+          todoId: todoId
       },
       UpdateExpression: updateExpression,
       ConditionExpression: 'todoId = :todoId',
       ExpressionAttributeValues: {
-        ':name': todo.name,
-        ':dueDate': todo.dueDate,
-        ':done': todo.done,
-        ':todoId': todo.todoId
+        ':name': updateTodo.name,
+        ':dueDate': updateTodo.dueDate,
+        ':done': updateTodo.done,
+        ':todoId': todoId
       },
       ExpressionAttributeNames: {
         '#n': 'name'
       },
       ReturnValues: 'UPDATED_NEW'
       }).promise()
-
-    return todo
+    
+    logger.info('Update Item succeed', {
+      result
+    })
   }
 
-  async createTodo(todo: TodoItem): Promise<TodoItem> {
-    logger.info('Creating a todo with ID ${todo.todoId}')
+  async createTodo(createTodo: CreateTodoRequest, userId: string, todoId: string): Promise<TodoItem> {
+    logger.info('Creating a todo with ID ${todoId}')
     
     const newItem = {
-      ...todo
+      name: createTodo.name,
+      dueDate: createTodo.dueDate,
+      createdAt: new Date().toISOString(),
+      userId: userId,
+      todoId: todoId,
+      done: false
     }
     
     await this.docClient.put({
@@ -77,11 +86,11 @@ export class TodoAccess {
       Item: newItem
     }).promise()
 
-    return todo
+    return newItem
   }
 
 
-  async deleteTodo(userId: string, todoId: string): Promise<string> {
+  async deleteTodo(userId: string, todoId: string)/*: Promise<string>*/ {
     logger.info('Deleting a todo with ID ${todo.todoId}')
     
     await this.docClient.delete({
@@ -96,10 +105,10 @@ export class TodoAccess {
       }
     }).promise()
     
-    return userId
+    //return userId
   }
 
-  async generateUploadUrl(todoId: string): Promise<string> {
+  async getUploadUrl(todoId: string): Promise<string> {
     logger.info('Generating upload Url')
     
     return this.s3.getSignedUrl('putObject', {
@@ -108,8 +117,24 @@ export class TodoAccess {
       Expires: this.urlExpiration
     })
   }
+  
+  async updateAttachmentUrl(userId: string, todoId: string) {
+    const attachmentUrl = `https://${this.bucketName}.s3.amazonaws.com/${todoId}`
+    
+      await this.docClient.update({
+        TableName: this.todoTable,
+        Key: {
+          userId: userId,
+          todoId: todoId
+        },
+        UpdateExpression: 'set attachmentUrl = :au',
+        ExpressionAttributeValues: {
+          ':au': attachmentUrl
+        },
+        ReturnValues: 'UPDATED_NEW'
+      }).promise()
+  }
 }
-
 
 function createDynamoDBClient() {
   if (process.env.IS_OFFLINE) {
