@@ -20,11 +20,11 @@ export const handler: APIGatewayProxyHandler = async (event: APIGatewayProxyEven
     await deleteTodoItem(userId, todoId)
   
     return {
-      statusCode: 200,
+      statusCode: 204,
       headers: {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Credentials': true
-     },
+      },
      body: ''
    }
   } catch (e) {
