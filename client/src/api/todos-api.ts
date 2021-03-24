@@ -50,7 +50,7 @@ export async function deleteTodo(
   await Axios.delete(`${apiEndpoint}/todos/${todoId}`, {
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${idToken}`,
+      'Authorization': `Bearer ${idToken}`
     }
   })
 }

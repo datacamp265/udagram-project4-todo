@@ -99,7 +99,7 @@ export class TodoAccess {
         userId,
         todoId
       },
-      ConditionExpression: todoId,
+      ConditionExpression: 'todoId = :todoId',
       ExpressionAttributeValues: {
         ':todoId': todoId
       }
