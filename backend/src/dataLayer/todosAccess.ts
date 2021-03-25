@@ -130,8 +130,8 @@ export class TodoAccess {
         UpdateExpression: 'set attachmentUrl = :au',
         ExpressionAttributeValues: {
           ':au': attachmentUrl
-        },
-        ReturnValues: 'UPDATED_NEW'
+        }
+       // ReturnValues: 'UPDATED_NEW'
       }).promise()
   }
 }
